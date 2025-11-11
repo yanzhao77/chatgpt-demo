@@ -6,7 +6,7 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.111.0-009688?logo=fastapi)]()
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg)]()
 
-![应用界面](https://via.placeholder.com/1200x600?text=ChatGPT+Demo+Interface)
+![应用界面](/static/image/main.png)
 
 ## ✨ 功能特点
 
