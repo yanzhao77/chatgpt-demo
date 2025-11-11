@@ -26,7 +26,7 @@
 | **前端** | HTMX + Tailwind CSS + Alpine.js |
 | **向量模型** | BAAI/bge-small-zh-v1.5 |
 | **向量库** | FAISS (CPU版) |
-| **大模型** | 智谱AI GLM-4 |
+| **大模型** | 智谱AI glm-4-flash |
 | **部署** | Docker + python:3.14.0-slim |
 
 ## 🚀 快速开始
