@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="zh" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文档问答系统</title>
+    <!-- Tailwind CSS with dark mode support -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        'chat-bg': {
+                            light: '#f0f2f5',
+                            dark: '#1f2937'
+                        },
+                        'user-msg': {
+                            light: '#0055FF',
+                            dark: '#3b82f6'
+                        },
+                        'ai-msg': {
+                            light: '#ffffff',
+                            dark: '#374151'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@1.9.6"></script>
+    <!-- Alpine.js -->
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js" defer></script>
+</head>
+<body class="h-full bg-chat-bg-light dark:bg-chat-bg-dark transition-colors duration-200">
+    <div class="flex h-screen">
+        <!-- 侧边栏 -->
+        <div class="w-64 bg-gray-50 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 p-4 hidden md:block">
+            <div class="flex items-center mb-6">
+                <div class="bg-blue-500 w-8 h-8 rounded-lg flex items-center justify-center text-white mr-2">
+                    <span class="font-bold">D</span>
+                </div>
+                <h1 class="text-lg font-bold text-gray-900 dark:text-white">文档问答</h1>
+            </div>
+            
+            <div class="mb-6">
+                <h2 class="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-2">新对话</h2>
+                <button class="w-full flex items-center justify-center py-2 px-3 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    新建对话
+                </button>
+            </div>
+            
+            <div>
+                <h2 class="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-2">上传文档</h2>
+                <div class="space-y-2">
+                    <form hx-post="/upload/" hx-encoding="multipart/form-data" hx-target="#upload-result" hx-swap="innerHTML" class="space-y-4">
+                        <div class="drag-area relative border-2 border-dashed rounded-lg p-4 text-center hover:border-blue-500 transition-colors">
+                            <input type="file" name="file" accept=".txt,.pdf,.docx,.md" class="hidden" id="file-input">
+                            <label for="file-input" class="cursor-pointer">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 mx-auto text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 9.9L16 10a2 2 0 00-2-2H6a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                </svg>
+                                <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                                    <span class="font-medium text-blue-600 dark:text-blue-400">点击上传</span> 或拖拽文件到这里
+                                </p>
+                                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">支持 .txt, .pdf, .docx, .md (最大 20MB)</p>
+                            </label>
+                        </div>
+                        <button type="submit" class="hidden w-full bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition duration-200">
+                            上传并处理
+                        </button>
+                    </form>
+                    <div id="upload-result" class="mt-4"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 主聊天区域 -->
+        <div class="flex-1 flex flex-col overflow-hidden">
+            <div class="flex-1 overflow-y-auto p-4 bg-white dark:bg-gray-800">
+                <div id="chat-history" class="max-w-3xl mx-auto space-y-6">
+                    <div class="text-center text-gray-500 dark:text-gray-400 py-8">
+                        <div class="bg-gray-100 dark:bg-gray-700 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-gray-500 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                            </svg>
+                        </div>
+                        <h2 class="text-xl font-bold mb-2">文档问答助手</h2>
+                        <p class="text-gray-600 dark:text-gray-300 max-w-md mx-auto">
+                            上传您的文档，然后提问。系统将基于文档内容提供准确回答。
+                        </p>
+                        <p class="text-gray-500 dark:text-gray-400 text-sm mt-4">
+                            或者直接与AI助手对话，无需上传文档
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="border-t border-gray-200 dark:border-gray-700 p-4 bg-white dark:bg-gray-800">
+                <div class="max-w-3xl mx-auto">
+                    <div class="flex space-x-2 items-center">
+                        <!-- 加载指示器 -->
+                        <div id="loading" class="hidden">
+                            <svg class="animate-spin h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        </div>
+                        
+                        <div class="flex-1 relative">
+                            <input 
+                                type="text" 
+                                id="question" 
+                                name="question"
+                                placeholder="输入您的问题..."
+                                class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                            >
+                            <button
+                                type="button"
+                                class="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                                onclick="document.getElementById('question').value = ''; this.hidden = true; updateSendButton();"
+                                hidden
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                        <button 
+                            id="send-btn" 
+                            class="bg-blue-500 hover:bg-blue-600 text-white font-medium w-12 h-10 rounded-lg transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                            disabled
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </button>
+                    </div>
+                    
+                    <div id="chat-response" class="hidden"></div>
+                    <input type="hidden" id="session_id" name="session_id" value="">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 拖拽功能
+        document.addEventListener('DOMContentLoaded', function() {
+            const dragArea = document.querySelector('.drag-area');
+            const fileInput = document.getElementById('file-input');
+            const questionInput = document.getElementById('question');
+            
+            // 添加输入框事件监听器
+            questionInput.addEventListener('input', function(e) {
+                updateSendButton();
+                
+                // 显示/隐藏清除按钮
+                const clearBtn = document.querySelector("button[onclick*='document.getElementById(\\'question\\')']");
+                if (e.target.value.trim() !== '') {
+                    if (clearBtn) clearBtn.hidden = false;
+                } else {
+                    if (clearBtn) clearBtn.hidden = true;
+                }
+            });
+            
+            // 监听回车键提交
+            questionInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    const sendBtn = document.getElementById('send-btn');
+                    // 只有当发送按钮启用时才触发点击
+                    if (!sendBtn.disabled) {
+                        sendBtn.click();
+                    }
+                }
+            });
+            
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dragArea.addEventListener(eventName, preventDefaults, false);
+            });
+
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dragArea.addEventListener(eventName, highlight, false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dragArea.addEventListener(eventName, unhighlight, false);
+            });
+
+            function highlight() {
+                dragArea.classList.add('border-blue-500', 'bg-blue-50', 'dark:bg-blue-900/20');
+            }
+
+            function unhighlight() {
+                dragArea.classList.remove('border-blue-500', 'bg-blue-50', 'dark:bg-blue-900/20');
+            }
+
+            // 处理拖拽文件
+            dragArea.addEventListener('drop', handleDrop, false);
+
+            function handleDrop(e) {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                if (files.length) {
+                    fileInput.files = files;
+                    // 创建一个事件来触发表单提交
+                    const event = new Event('submit', { bubbles: true });
+                    fileInput.form.dispatchEvent(event);
+                }
+            }
+
+            // 处理文件选择
+            fileInput.addEventListener('change', function() {
+                if (this.files.length) {
+                    // 创建一个事件来触发表单提交
+                    const event = new Event('submit', { bubbles: true });
+                    this.form.dispatchEvent(event);
+                }
+            });
+        });
+
+        // 更新发送按钮状态的函数
+        function updateSendButton() {
+            const sendBtn = document.getElementById('send-btn');
+            const question = document.getElementById('question').value;
+            const sessionId = document.getElementById('session_id').value;
+            
+            // 如果有输入问题，就启用发送按钮（无论是否有文档）
+            if (question.trim() !== '') {
+                sendBtn.disabled = false;
+            } else {
+                sendBtn.disabled = true;
+            }
+        }
+
+        // 处理发送按钮点击事件
+        document.getElementById('send-btn').addEventListener('click', function(e) {
+            e.preventDefault();
+            const question = document.getElementById('question').value;
+            if (question.trim() === '') return;
+            
+            // 防止重复点击
+            if (this.disabled) return;
+            
+            // 立即显示用户问题到聊天历史
+            const chatHistory = document.getElementById('chat-history');
+            const userMsg = document.createElement('div');
+            userMsg.className = 'max-w-md ml-auto';
+            userMsg.innerHTML = `
+                <div class="bg-user-msg-light dark:bg-user-msg text-white rounded-l-lg rounded-tr-lg px-4 py-2 shadow">
+                    ${question}
+                </div>
+            `;
+            chatHistory.appendChild(userMsg);
+            
+            // 清空输入框并更新按钮状态
+            const questionInput = document.getElementById('question');
+            questionInput.value = '';
+            updateSendButton();
+            
+            // 滚动到底部
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+            
+            // 显示加载指示器（在输入框前面）
+            document.getElementById('loading').classList.remove('hidden');
+            
+            // 获取session_id（如果存在）
+            const sessionId = document.getElementById('session_id').value;
+            
+            // 构建请求数据
+            const requestData = {
+                question: question
+            };
+            
+            if (sessionId) {
+                requestData.session_id = sessionId;
+            }
+            
+            // 发送请求
+            fetch('/chat/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                // 处理响应
+                handleChatResponse(data);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('请求失败: ' + error.message);
+                // 隐藏加载指示器
+                document.getElementById('loading').classList.add('hidden');
+                // 重新启用发送按钮
+                this.disabled = false;
+            });
+        });
+
+        // 处理聊天响应
+        function handleChatResponse(data) {
+            const chatHistory = document.getElementById('chat-history');
+            const sendBtn = document.getElementById('send-btn');
+            const loadingIndicator = document.getElementById('loading');
+            
+            // 隐藏加载指示器
+            loadingIndicator.classList.add('hidden');
+            
+            // 重新启用发送按钮
+            sendBtn.disabled = false;
+            
+            // 创建AI回答容器
+            const aiMsg = document.createElement('div');
+            aiMsg.className = 'max-w-md';
+            
+            // 动态创建带Alpine.js指令的元素
+            const aiContentDiv = document.createElement('div');
+            aiContentDiv.className = 'bg-ai-msg-light dark:bg-ai-msg text-gray-800 dark:text-gray-200 rounded-r-lg rounded-tl-lg px-4 py-2 shadow';
+            aiContentDiv.setAttribute('x-data', JSON.stringify({
+                text: '',
+                fullText: data.answer,
+                index: 0
+            }));
+            aiContentDiv.setAttribute('x-init', '() => { let interval = setInterval(() => { if (index < fullText.length) { text += fullText[index++]; } else { clearInterval(interval); } }, 20); }');
+            aiContentDiv.setAttribute('x-text', 'text');
+            
+            aiMsg.appendChild(aiContentDiv);
+            chatHistory.appendChild(aiMsg);
+            
+            // 滚动到底部
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+            
+            // 确保聊天响应容器被清空
+            setTimeout(() => {
+                document.getElementById('chat-response').innerHTML = '';
+            }, 100);
+        }
+
+        // 处理文件上传结果
+        htmx.on('#upload-result', 'htmx:afterRequest', function(evt) {
+            if (evt.detail.success) {
+                const response = JSON.parse(evt.detail.xhr.responseText);
+                document.getElementById('session_id').value = response.session_id;
+                
+                // 清空聊天历史
+                const chatHistory = document.getElementById('chat-history');
+                chatHistory.innerHTML = '';
+                
+                // 添加系统消息
+                const systemMsg = document.createElement('div');
+                systemMsg.className = 'max-w-md mx-auto bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-800 rounded-lg p-3 text-sm';
+                systemMsg.innerHTML = `
+                    <div class="font-medium">文档已加载</div>
+                    <div class="mt-1">已成功处理 ${response.chunk_count} 个文本块，现在可以提问了。</div>
+                `;
+                chatHistory.appendChild(systemMsg);
+                
+                // 滚动到底部
+                chatHistory.scrollTop = chatHistory.scrollHeight;
+            } else {
+                alert('文件处理失败：' + evt.detail.xhr.responseText);
+            }
+        });
+    </script>
+</body>
+</html>

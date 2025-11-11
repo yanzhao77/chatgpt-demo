@@ -1,0 +1,16 @@
+# 项目依赖列表
+fastapi
+uvicorn
+sentence-transformers
+faiss-cpu
+pymupdf
+python-dotenv
+zhipuai
+python-docx
+markdown
+pytest
+pytest-asyncio
+httpx
+
+# 测试依赖
+pytest-cov
